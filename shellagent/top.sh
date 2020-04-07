@@ -4,6 +4,7 @@
 # normalize to per-core metrics; ProcPS top divides CPU consumption by the number of cores. Consider collecting at least the number of cores for downstream systems to interpret.
 
 DIR=`dirname $0`
+. ${DIR}/common.sh
 
 export _SHAGENT_COMMAND=top
 

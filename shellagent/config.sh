@@ -1,0 +1,3 @@
+#!/bin/sh
+
+export SHAGENT_DEST=192.168.1.127:10002
