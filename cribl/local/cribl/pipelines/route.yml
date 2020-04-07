@@ -1,0 +1,48 @@
+id: default
+groups: {}
+routes:
+  - id: xa51Ii
+    name: shellagent
+    final: true
+    disabled: false
+    pipeline: shellagent-parse
+    description: Shellagent Output
+    clones: []
+    filter: command
+    output: influx
+  - id: A8y30n
+    name: speedtest
+    final: true
+    disabled: false
+    pipeline: speedtest-parse
+    description: ""
+    clones: []
+    filter: client && server && download && upload
+    output: influx
+  - id: M6yz8j
+    name: mtr
+    final: true
+    disabled: false
+    pipeline: mtr
+    description: ""
+    clones: []
+    filter: report.mtr
+    output: influx
+  - id: OAcQ7a
+    name: telegraf
+    final: true
+    disabled: false
+    pipeline: passthru
+    description: ""
+    clones: []
+    filter: sourcetype=='graphite'
+    output: influx
+  - id: default
+    name: default
+    final: true
+    disabled: false
+    pipeline: main
+    description: ""
+    clones: []
+    filter: "true"
+    output: default

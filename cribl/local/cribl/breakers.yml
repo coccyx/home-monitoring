@@ -1,0 +1,13 @@
+Never Match:
+  lib: custom
+  tags: never,match
+  rules:
+    - condition: "true"
+      eventBreakerRegex: /$./
+      timestampAnchorRegex: /^/
+      timestamp:
+        type: auto
+        length: 150
+      timestampTimezone: local
+      maxEventBytes: 51200
+      name: Never Match

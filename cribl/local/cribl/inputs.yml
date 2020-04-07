@@ -1,0 +1,31 @@
+inputs:
+  metrics:
+    disabled: false
+    host: 0.0.0.0
+    maxBufferSize: 1000
+    ipWhitelistRegex: /.*/
+    type: metrics
+    udpPort: 8125
+    tcpPort: 8125
+  tcpjson:
+    disabled: false
+    host: 0.0.0.0
+    tls:
+      disabled: true
+    ipWhitelistRegex: /.*/
+    authToken: ""
+    type: tcpjson
+    port: 10001
+  tcp:
+    disabled: false
+    host: 0.0.0.0
+    tls:
+      disabled: true
+    ipWhitelistRegex: /.*/
+    staleChannelFlushMs: 10000
+    enableHeader: false
+    type: tcp
+    port: 10002
+    breakerRulesets:
+      - Never Match
+    pipeline: shellagent-preprocess

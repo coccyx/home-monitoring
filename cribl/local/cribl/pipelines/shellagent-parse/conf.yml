@@ -1,0 +1,418 @@
+output: default
+groups:
+  OgfNdq:
+    name: top-procps
+    description: Extract top output from procps systems
+    index: 0
+  JeuvMd:
+    name: df
+    description: Extract `df` output
+    index: 1
+  gfNcjA:
+    name: /proc/stat
+    description: Output of /proc/stat
+    index: 2
+  wo1yIt:
+    name: /proc/diskstats
+    description: Output of /proc/diskstats
+    index: 3
+asyncFuncTimeout: 1000
+functions:
+  - id: regex_extract
+    filter: command=='top' && commver=='procps'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /top -[^]+(?<__top>top -[^]+)/m
+    groupId: OgfNdq
+    description: Top sends two outputs, trim the first
+  - id: eval
+    filter: __top
+    disabled: null
+    conf:
+      add:
+        - name: _raw
+          value: __top
+    groupId: OgfNdq
+  - id: regex_extract
+    filter: command=='top' && commver=='procps'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /up\s+(?<__uptimeDays>\d+)\s+day[s]?,\s*(?:(?<__uptimeHours>\d{1,2}):)?(?<__uptimeMinutes>\d{1,2})(?:\s+min)?,\s*(?<users>\d+)\s+user[s]?,\s*load
+        average:\s+(?<loadavg_1m>[\d\.]+),\s*(?<loadavg_5m>[\d\.]+),\s*(?<loadavg_15m>[\d\.]+)\nTasks:\s+(?<tasks_total>\d+)\s+total,\s*(?<tasks_running>\d+)\s+running,\s*(?<tasks_sleeping>\d+)\s+sleeping,\s*(?<tasks_stopped>\d+)\s+stopped,\s*(?<tasks_zombie>\d+)\s+zombie\n%Cpu\(s\):\s+(?<cpu_user>[\d.]+)\s+us,\s*(?<cpu_system>[\d.]+)\s+sy,\s*(?<cpu_nice>[\d.]+)\s+ni,\s*(?<cpu_idle>[\d.]+)\s+id,\s*(?<cpu_wait>[\d.]+)\s+wa,\s*(?<cpu_irq>[\d.]+)\s+hi,\s*(?<cpu_softirq>[\d.]+)\s+si,\s*(?<cpu_steal>[\d.]+)\s+st\nKiB
+        Mem\s*:\s*(?<mem_total>\d+)\s+total,\s*(?<mem_free>\d+)\s+free,\s*(?<mem_used>\d+)\s+used,\s*(?<mem_cache>\d+)\s+buff\/cache\nKiB
+        Swap\s*:\s*(?<swap_total>\d+)\s+total,\s*(?<swap_free>\d+)\s+free,\s*(?<swap_used>\d+)\s+used.\s*(?<mem_avail>\d+)\s+avail
+        Mem\s*\n/m
+    groupId: OgfNdq
+  - id: eval
+    filter: __uptimeDays || __uptimeHours || __uptimeMinutes
+    disabled: null
+    conf:
+      add:
+        - name: __uptimeDays
+          value: Number(__uptimeDays || 0)
+        - name: __uptimeHours
+          value: Number(__uptimeHours || 0)
+        - name: __uptimeMinutes
+          value: Number(__uptimeMinutes || 0)
+        - name: uptime
+          value: __uptimeDays*86400+__uptimeHours*3600+__uptimeMinutes*60
+    description: Create uptimeSeconds field from parsed uptime
+    groupId: OgfNdq
+  - id: eval
+    filter: command=='top'
+    disabled: null
+    conf:
+      add:
+        - name: mem_avail_perc
+          value: (mem_avail/mem_total)*100
+        - name: mem_used_perc
+          value: (mem_used/mem_total)*100
+        - name: swap_used_perc
+          value: (swap_used/mem_total)*100
+        - name: cpu
+          value: "'cpu-total'"
+    description: Calculate CPU idle or Memory Available percentage
+    groupId: OgfNdq
+  - id: numerify
+    filter: command=='top'
+    disabled: null
+    conf:
+      ignoreFields: []
+    groupId: OgfNdq
+  - id: publish_metrics
+    filter: command=='top'
+    disabled: null
+    conf:
+      fields:
+        - metricType: gauge
+          inFieldName: cpu_idle
+          outFieldExpr: "'cpu.usage_idle'"
+        - metricType: gauge
+          inFieldName: cpu_irq
+          outFieldExpr: "'cpu.usage_irq'"
+        - metricType: gauge
+          inFieldName: cpu_nice
+          outFieldExpr: "'cpu.usage_nice'"
+        - metricType: gauge
+          inFieldName: cpu_softirq
+          outFieldExpr: "'cpu.usage_softirq'"
+        - metricType: gauge
+          inFieldName: cpu_steal
+          outFieldExpr: "'cpu.usage_steal'"
+        - metricType: gauge
+          inFieldName: cpu_system
+          outFieldExpr: "'cpu.usage_system'"
+        - metricType: gauge
+          inFieldName: cpu_user
+          outFieldExpr: "'cpu.usage_user'"
+        - metricType: gauge
+          inFieldName: cpu_wait
+          outFieldExpr: "'cpu.usage_iowait'"
+        - metricType: gauge
+          inFieldName: loadavg_1m
+          outFieldExpr: "'system.load1'"
+        - metricType: gauge
+          inFieldName: loadavg_5m
+          outFieldExpr: "'system.load5'"
+        - metricType: gauge
+          inFieldName: loadavg_15m
+          outFieldExpr: "'system.load15'"
+        - metricType: gauge
+          inFieldName: mem_avail
+          outFieldExpr: "'mem.available'"
+        - metricType: gauge
+          inFieldName: mem_avail_perc
+          outFieldExpr: "'mem.available_percent'"
+        - metricType: gauge
+          inFieldName: mem_cache
+          outFieldExpr: "'mem.cached'"
+        - metricType: gauge
+          inFieldName: mem_free
+          outFieldExpr: "'mem.free'"
+        - metricType: gauge
+          inFieldName: mem_total
+          outFieldExpr: "'mem.total'"
+        - metricType: gauge
+          inFieldName: mem_used
+          outFieldExpr: "'mem.used'"
+        - metricType: gauge
+          inFieldName: mem_used_perc
+          outFieldExpr: "'mem.used_percent'"
+        - metricType: gauge
+          inFieldName: swap_free
+          outFieldExpr: "'swap.free'"
+        - metricType: gauge
+          inFieldName: swap_free
+          outFieldExpr: "'mem.swap_free'"
+        - metricType: gauge
+          inFieldName: swap_total
+          outFieldExpr: "'mem.swap_total'"
+        - metricType: gauge
+          inFieldName: swap_total
+          outFieldExpr: "'swap.total'"
+        - metricType: gauge
+          inFieldName: swap_used
+          outFieldExpr: "'mem.swap_used'"
+        - metricType: gauge
+          inFieldName: swap_used
+          outFieldExpr: "'swap.used'"
+        - metricType: gauge
+          inFieldName: swap_used_perc
+          outFieldExpr: "'swap.used_percent'"
+        - metricType: gauge
+          inFieldName: tasks_running
+          outFieldExpr: "'processes.running'"
+        - metricType: gauge
+          inFieldName: tasks_sleeping
+          outFieldExpr: "'processes.sleeping'"
+        - metricType: gauge
+          inFieldName: tasks_stopped
+          outFieldExpr: "'processes.stopped'"
+        - metricType: gauge
+          inFieldName: tasks_total
+          outFieldExpr: "'processes.total'"
+        - metricType: gauge
+          inFieldName: tasks_zombie
+          outFieldExpr: "'processes.zombies'"
+        - metricType: gauge
+          inFieldName: uptime
+          outFieldExpr: "'system.uptime'"
+        - metricType: gauge
+          inFieldName: users
+          outFieldExpr: "'system.n_users'"
+      dimensions:
+        - "!_*"
+        - "*"
+      overwrite: false
+    description: Publish parsed output of top as metrics
+    groupId: OgfNdq
+  - id: eval
+    filter: command=='df'
+    disabled: null
+    conf:
+      add:
+        - name: _raw
+          value: "JSON.stringify({rows: _raw.split(/[\\r\\n]/m)})"
+    description: Create JSON array of lines
+    groupId: JeuvMd
+  - id: json_unroll
+    filter: command=='df'
+    disabled: null
+    conf:
+      path: rows
+    groupId: JeuvMd
+  - id: drop
+    filter: _raw.match(/Filesystem\s+/)
+    disabled: null
+    conf: {}
+    description: Drop header row
+    groupId: JeuvMd
+  - id: eval
+    filter: command=='df'
+    disabled: null
+    conf:
+      add:
+        - name: _raw
+          value: JSON.parse(_raw).value
+    groupId: JeuvMd
+  - id: regex_extract
+    filter: command=='df' && commver=='kilobytes'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /(?<device>\S+)\s+(?<fstype>\S+)\s+(?<total>\S+)\s+(?<used>\S+)\s+(?<free>\S+)\s+(?<used_percent>\d+)%\s+(?<path>\S+)/
+    description: Extract DF output as kilobytes
+    groupId: JeuvMd
+  - id: regex_extract
+    filter: command=='df' && commver=='inodes'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /(?<device>\S+)\s+(?<fstype>\S+)\s+(?<inodes_total>\S+)\s+(?<inodes_used>\S+)\s+(?<inodes_free>\S+)\s+(?<inodes_used_percent>\d+)%\s+(?<path>\S+)/
+    description: Extract DF output as inodes
+    groupId: JeuvMd
+  - id: numerify
+    filter: command=='df'
+    disabled: null
+    conf:
+      ignoreFields: []
+    groupId: JeuvMd
+  - id: publish_metrics
+    filter: command=='df'
+    disabled: null
+    conf:
+      fields:
+        - metricType: gauge
+          inFieldName: free
+          outFieldExpr: "'disk.free'"
+        - metricType: gauge
+          inFieldName: total
+          outFieldExpr: "'disk.total'"
+        - metricType: gauge
+          inFieldName: used
+          outFieldExpr: "'disk.used'"
+        - metricType: gauge
+          inFieldName: used_percent
+          outFieldExpr: "'disk.used_percent'"
+        - metricType: gauge
+          inFieldName: inodes_free
+          outFieldExpr: "'disk.inodes_free'"
+        - metricType: gauge
+          inFieldName: inodes_total
+          outFieldExpr: "'disk.inodes_total'"
+        - metricType: gauge
+          inFieldName: inodes_used
+          outFieldExpr: "'disk.inodes_used'"
+        - metricType: gauge
+          inFieldName: inodes_used_percent
+          outFieldExpr: "'disk.inodes_used_percent'"
+      dimensions:
+        - "!_*"
+        - "*"
+      overwrite: false
+    description: Publish DF metrics
+    groupId: JeuvMd
+  - id: regex_extract
+    filter: command=='cat_proc_stat'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /intr\s+(?<interrupts>\d+).+\nctxt\s+(?<context_switches>\d+)\nbtime\s+(?<boot_time>\d+)\nprocesses\s+(?<processes>\d+)\nprocs_running\s+(?<procs_running>\d+)\nprocs_blocked\s+(?<procs_blocked>\d+)\n/m
+    description: Parse /proc/stat output
+    groupId: gfNcjA
+  - id: numerify
+    filter: command=='cat_proc_stat'
+    disabled: null
+    conf:
+      ignoreFields: []
+    groupId: gfNcjA
+  - id: publish_metrics
+    filter: command=='cat_proc_stat'
+    disabled: null
+    conf:
+      fields:
+        - metricType: gauge
+          inFieldName: boot_time
+          outFieldExpr: "'kernel.boot_time'"
+        - metricType: gauge
+          inFieldName: context_switches
+          outFieldExpr: "'kernel.context_switches'"
+        - metricType: gauge
+          inFieldName: interrupts
+          outFieldExpr: "'kernel.interrupts'"
+        - metricType: gauge
+          inFieldName: processes
+          outFieldExpr: "'kernel.processes_forked'"
+        - metricType: gauge
+          inFieldName: procs_blocked
+          outFieldExpr: "'kernel.processes_blocked'"
+        - metricType: gauge
+          inFieldName: procs_running
+          outFieldExpr: "'kernel.processes_running'"
+      dimensions:
+        - "!_*"
+        - "*"
+      overwrite: false
+    groupId: gfNcjA
+  - id: eval
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      add:
+        - name: _raw
+          value: "JSON.stringify({rows: _raw.split(/[\\r\\n]/m)})"
+    groupId: wo1yIt
+  - id: json_unroll
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      path: rows
+    groupId: wo1yIt
+  - id: eval
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      add:
+        - name: _raw
+          value: JSON.parse(_raw).value
+    groupId: wo1yIt
+  - id: regex_extract
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /\s*\d+\s+\d+\s+(?<name>\S+)\s+(?<reads>\d+)\s+(?<merged_reads>\d+)\s+(?<sectors_read>\d+)\s+(?<read_time>\d+)\s+(?<writes>\d+)\s+(?<merged_writes>\d+)\s+(?<sectors_written>\d+)\s+(?<write_time>\d+)\s+(?<iops_in_progress>\d+)\s+(?<io_time>\d+)\s+(?<weighted_io_time>\d+)/
+    groupId: wo1yIt
+  - id: numerify
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      ignoreFields: []
+    groupId: wo1yIt
+  - id: eval
+    filter: command=='cat_proc_diskstats'
+    disabled: null
+    conf:
+      add:
+        - name: read_bytes
+          value: sectors_read*512
+        - name: write_bytes
+          value: sectors_written*512
+    groupId: wo1yIt
+  - id: publish_metrics
+    filter: command=='cat_proc_diskstats'
+    disabled: false
+    conf:
+      fields:
+        - metricType: gauge
+          inFieldName: io_time
+          outFieldExpr: "'diskio.io_time'"
+        - metricType: gauge
+          inFieldName: iops_in_progress
+          outFieldExpr: "'diskio.iops_in_progress'"
+        - metricType: gauge
+          inFieldName: merged_reads
+          outFieldExpr: "'diskio.merged_reads'"
+        - metricType: gauge
+          inFieldName: merged_writes
+          outFieldExpr: "'diskio.merged_writes'"
+        - metricType: gauge
+          inFieldName: read_time
+          outFieldExpr: "'diskio.read_time'"
+        - metricType: gauge
+          inFieldName: reads
+          outFieldExpr: "'diskio.reads'"
+        - metricType: gauge
+          inFieldName: sectors_read
+          outFieldExpr: "'diskio.sectors_read'"
+        - metricType: gauge
+          inFieldName: sectors_written
+          outFieldExpr: "'diskio.sectors_written'"
+        - metricType: gauge
+          inFieldName: weighted_io_time
+          outFieldExpr: "'diskio.weighted_io_time'"
+        - metricType: gauge
+          inFieldName: write_time
+          outFieldExpr: "'diskio.write_time'"
+        - metricType: gauge
+          inFieldName: writes
+          outFieldExpr: "'diskio.writes'"
+        - metricType: gauge
+          inFieldName: read_bytes
+          outFieldExpr: "'diskio.read_bytes'"
+        - metricType: gauge
+          inFieldName: write_bytes
+          outFieldExpr: "'diskio.write_bytes'"
+      dimensions:
+        - "!_*"
+        - "*"
+      overwrite: false
+    groupId: wo1yIt

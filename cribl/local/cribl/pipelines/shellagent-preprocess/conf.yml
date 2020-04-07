@@ -1,0 +1,28 @@
+output: default
+groups: {}
+asyncFuncTimeout: 1000
+functions:
+  - id: regex_extract
+    filter: "true"
+    disabled: null
+    conf:
+      source: _raw
+      iterations: 100
+      regex: /(?<__hasMetadata>\*\*\*CRIBL\*\*\*)\s+(?<__shellagent_kv>[^\n]+)\n/
+  - id: serde
+    filter: __shellagent_kv
+    disabled: null
+    conf:
+      mode: extract
+      type: kvp
+      srcField: __shellagent_kv
+  - id: mask
+    filter: __hasMetadata
+    disabled: null
+    conf:
+      rules:
+        - matchRegex: /[^\n]+\n([^$]*)/
+          replaceExpr: g1
+      fields:
+        - _raw
+description: Pre-processes shellagent output to extract metadata
